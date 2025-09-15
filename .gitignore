@@ -1,0 +1,5 @@
+cinemas.json
+films.json
+showings*.json
+seat_counts.log
+.DS_Store
