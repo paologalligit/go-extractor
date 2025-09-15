@@ -133,84 +133,72 @@ func main() {
 		panic(fmt.Sprintf("Failed to get cookies: %v", err))
 	}
 	fmt.Println("🍪 Cookies fetched")
-	/*
-		fetchCinemas(cookiesManager)
-		fmt.Println("🏠 Cinemas fetched")
-		fetchFilms(cookiesManager)
-		fmt.Println("🎬 Films fetched")
 
-		// Read cinema and film data
-		cinemaIds, regionData := getCinemaIds()
-		filmIds := getFilmIds()
+	fetchCinemas(cookiesManager)
+	fmt.Println("🏠 Cinemas fetched")
+	fetchFilms(cookiesManager)
+	fmt.Println("🎬 Films fetched")
 
-		// Create work items (combinations of cinema and film IDs)
-		var workItems []WorkItem
-		for _, cinemaId := range cinemaIds {
-			for _, filmId := range filmIds {
-				workItems = append(workItems, WorkItem{CinemaId: cinemaId, FilmId: filmId})
-			}
+	// Read cinema and film data
+	cinemaIds, regionData := getCinemaIds()
+	filmIds := getFilmIds()
+
+	// Create work items (combinations of cinema and film IDs)
+	var workItems []WorkItem
+	for _, cinemaId := range cinemaIds {
+		for _, filmId := range filmIds {
+			workItems = append(workItems, WorkItem{CinemaId: cinemaId, FilmId: filmId})
 		}
-
-		totalRequests := len(workItems)
-		fmt.Printf("Total requests to make: %d\n", totalRequests)
-
-		// Create channels for work distribution and result collection
-		jobs := make(chan WorkItem, totalRequests)
-		results := make(chan ShowingResult, totalRequests)
-
-		// Counter for completed requests
-		var completed int64 = 0
-
-		// Start progress reporting in a separate goroutine
-		stopProgress := make(chan struct{})
-		go reportProgress(&completed, int64(totalRequests), stopProgress)
-
-		// Start worker goroutines
-		var wg sync.WaitGroup
-
-		// Limit to maxGoroutines or total work items, whichever is smaller
-		workerCount := min(*maxGoroutines, totalRequests)
-		fmt.Printf("👷 Starting %d workers\n", workerCount)
-
-		for range workerCount {
-			wg.Add(1)
-			go worker(jobs, results, &wg, regionData, *requestDelay, &completed, cookiesManager)
-		}
-
-		// Add jobs to channel
-		for _, item := range workItems {
-			jobs <- item
-		}
-		close(jobs)
-
-		// Wait for all goroutines to finish in a separate goroutine
-		go func() {
-			wg.Wait()
-			close(results)
-			close(stopProgress) // Stop the progress reporting
-		}()
-
-		// Collect results
-		var finalResults []ShowingResult
-		for result := range results {
-			finalResults = append(finalResults, result)
-		}
-
-		// Write results to file
-		writeResultsToFile(finalResults, "showings")
-		fmt.Println("\n🏁 Done! Results written to showings.json")
-	*/
-	const showingsFile = "showings_20250915_130905.json"
-	fmt.Println("📂 Loading showings from", showingsFile)
-	data, err := os.ReadFile(showingsFile)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to read %s: %v", showingsFile, err))
 	}
+
+	totalRequests := len(workItems)
+	fmt.Printf("Total requests to make: %d\n", totalRequests)
+
+	// Create channels for work distribution and result collection
+	jobs := make(chan WorkItem, totalRequests)
+	results := make(chan ShowingResult, totalRequests)
+
+	// Counter for completed requests
+	var completed int64 = 0
+
+	// Start progress reporting in a separate goroutine
+	stopProgress := make(chan struct{})
+	go reportProgress(&completed, int64(totalRequests), stopProgress)
+
+	// Start worker goroutines
+	var wg sync.WaitGroup
+
+	// Limit to maxGoroutines or total work items, whichever is smaller
+	workerCount := min(*maxGoroutines, totalRequests)
+	fmt.Printf("👷 Starting %d workers\n", workerCount)
+
+	for range workerCount {
+		wg.Add(1)
+		go worker(jobs, results, &wg, regionData, *requestDelay, &completed, cookiesManager)
+	}
+
+	// Add jobs to channel
+	for _, item := range workItems {
+		jobs <- item
+	}
+	close(jobs)
+
+	// Wait for all goroutines to finish in a separate goroutine
+	go func() {
+		wg.Wait()
+		close(results)
+		close(stopProgress) // Stop the progress reporting
+	}()
+
+	// Collect results
 	var finalResults []ShowingResult
-	if err := json.Unmarshal(data, &finalResults); err != nil {
-		panic(fmt.Sprintf("Failed to unmarshal %s: %v", showingsFile, err))
+	for result := range results {
+		finalResults = append(finalResults, result)
 	}
-	fmt.Printf("📊 Loaded %d showings\n", len(finalResults))
+
+	// Write results to file
+	writeResultsToFile(finalResults, "showings")
+	fmt.Println("\n🏁 Done! Results written to showings.json")
 
 	todaySessions := filterTodaySessions(finalResults)
 	fmt.Println("🔍 Found", len(todaySessions), "sessions to schedule timers for")
