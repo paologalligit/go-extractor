@@ -92,6 +92,7 @@ func scheduleSessionTimers(todaySessions []entities.ScheduledSession, cookiesMan
 				fmt.Printf("❌❌ Error logging seat count for session %s: %v\n", s.Session.SessionId, err)
 				return
 			}
+			fmt.Println("💾 Data stored on database correctly")
 		}(session, duration)
 	}
 	wg.Wait()
