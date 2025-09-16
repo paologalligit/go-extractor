@@ -1,0 +1,12 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: thespace
+      POSTGRES_PASSWORD: thespace
+      POSTGRES_DB: thespace
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data

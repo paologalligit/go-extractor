@@ -9,6 +9,7 @@ go_extractor is a modular Go project for extracting, scheduling, and logging cin
 - Schedules timers to query and log seat counts for each session after it starts
 - Modular codebase with clear package boundaries
 - Append-only logging for auditability
+- **Optional Postgres persistence layer for structured storage**
 
 ---
 
@@ -21,6 +22,40 @@ go_extractor is a modular Go project for extracting, scheduling, and logging cin
 - **header/**: Cookie and header management for authenticated requests
 - **constant/**: API endpoint constants
 - **utils/**: Utility functions (e.g., file helpers)
+- **persistence/**: Postgres connection and (future) data access logic
+
+---
+
+## Persistence Layer: Postgres
+
+- Uses a dockerized Postgres instance for local development.
+- Connection managed via the [pgx/v5](https://github.com/jackc/pgx) Go library (high-performance, idiomatic Postgres driver).
+- Connection string defaults to:
+  `postgres://thespace:thespace@localhost:5432/thespace?sslmode=disable`
+- You can override with the `DATABASE_URL` environment variable.
+- See `persistence/postgres.go` for connection and (future) migration logic.
+
+### Running Postgres Locally
+
+1. Start Postgres with Docker Compose:
+   ```sh
+   docker-compose up -d
+   ```
+2. The database will be available at `localhost:5432` with user/password/db all set to `thespace` by default.
+
+### Using from Go code
+
+```go
+import "github.com/paologalligit/go-extractor/persistence"
+
+ctx := context.Background()
+pool, err := persistence.NewPostgresPool(ctx)
+if err != nil {
+    log.Fatal(err)
+}
+defer pool.Close()
+// Use pool.Query, pool.Exec, etc.
+```
 
 ---
 
@@ -43,7 +78,7 @@ Fetches all showings for a given day and writes them to a file.
 
 **Usage:**
 ```sh
-go run main.go fetch-showings --workers=10 --delay=100
+go run main.go all --workers=10 --delay=100
 ```
 - Options:
   - `--workers`: Number of concurrent workers (default: 10)
@@ -55,7 +90,7 @@ Reads a sessions file and schedules timers for each session. After each session 
 
 **Usage:**
 ```sh
-go run main.go seat-timers
+go run main.go today
 ```
 - If `todaySession-YYYY-MM-DD.json` does not exist, it will be created automatically for today.
 - Output: `seat_counts.log`
@@ -66,15 +101,19 @@ go run main.go seat-timers
 
 1. **Fetch showings for the day:**
    ```sh
-   go run main.go fetch-showings --workers=20 --delay=200
+   go run main.go all --workers=20 --delay=200
    # Creates a file like showings_20250915_130905.json or todaySession-2025-09-15.json
    ```
 
 2. **Start seat counting timers:**
    ```sh
-   go run main.go seat-timers
+   go run main.go today
    # Reads the sessions file and logs seat counts as sessions start
    ```
+
+3. **(Optional) Use Postgres for persistence:**
+   - Start Postgres: `docker-compose up -d`
+   - Use the `persistence` package in your Go code to connect and store/query data.
 
 ---
 
@@ -85,6 +124,7 @@ go run main.go seat-timers
 - All logs are append-only for auditability and post-processing.
 - Error handling is robust and all errors are logged with context.
 - The project is ready for further automation, scheduling, or integration with other systems.
+- Postgres support is ready for future migration of logs and showings to structured storage.
 
 ---
 

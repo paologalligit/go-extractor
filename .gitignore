@@ -3,3 +3,6 @@ films.json
 showings*.json
 seat_counts.log
 .DS_Store
+pg_data/
+.env
+seat_counts.json

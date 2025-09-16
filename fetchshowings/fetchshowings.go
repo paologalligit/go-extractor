@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,21 +26,21 @@ type FetchShowingsOptions struct {
 
 // RunFetchShowings fetches showings and writes them to a file
 func RunFetchShowings(options *FetchShowingsOptions) error {
-	if err := fetchCinemas(options.CookiesManager); err != nil {
+	if err := utils.FetchCinemas(options.CookiesManager); err != nil {
 		return fmt.Errorf("failed to fetch cinemas: %w", err)
 	}
 	fmt.Println("🏠 Cinemas fetched")
-	if err := fetchFilms(options.CookiesManager); err != nil {
+	if err := utils.FetchFilms(options.CookiesManager); err != nil {
 		return fmt.Errorf("failed to fetch films: %w", err)
 	}
 	fmt.Println("🎬 Films fetched")
 
 	// Read cinema and film data
-	cinemaIds, regionData, err := getCinemaIds()
+	cinemaIds, regionData, err := utils.GetCinemaIds()
 	if err != nil {
 		return fmt.Errorf("failed to get cinema ids: %w", err)
 	}
-	filmIds, err := getFilmIds()
+	filmIds, err := utils.GetFilmIds()
 	if err != nil {
 		return fmt.Errorf("failed to get film ids: %w", err)
 	}
@@ -66,7 +65,7 @@ func RunFetchShowings(options *FetchShowingsOptions) error {
 
 	// Start progress reporting in a separate goroutine
 	stopProgress := make(chan struct{})
-	go reportProgress(&completed, int64(totalRequests), stopProgress)
+	go utils.ReportProgress(&completed, int64(totalRequests), stopProgress)
 
 	// Start worker goroutines
 	var wg sync.WaitGroup
@@ -77,7 +76,7 @@ func RunFetchShowings(options *FetchShowingsOptions) error {
 
 	for range workerCount {
 		wg.Add(1)
-		go worker(jobs, results, &wg, regionData, options.RequestDelay, &completed, options)
+		go worker(jobs, results, &wg, regionData, &completed, options)
 	}
 
 	// Add jobs to channel
@@ -107,149 +106,7 @@ func RunFetchShowings(options *FetchShowingsOptions) error {
 	return nil
 }
 
-func fetchCinemas(cookiesManager *header.CookiesManager) error {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", constant.CINEMAS_URL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request for cinemas: %w", err)
-	}
-
-	headers, err := header.GetHeaders(cookiesManager)
-	if err != nil {
-		return fmt.Errorf("failed to get headers: %w", err)
-	}
-	for k, v := range headers {
-		req.Header.Add(k, v)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to fetch cinemas: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response for cinemas: %w", err)
-	}
-
-	var cinemas entities.CinemasFile
-	if err := json.Unmarshal(body, &cinemas); err != nil {
-		return fmt.Errorf("failed to parse cinemas: %w", err)
-	}
-
-	os.WriteFile("cinemas.json", body, 0644)
-	return nil
-}
-
-func fetchFilms(cookiesManager *header.CookiesManager) error {
-	client := &http.Client{}
-	req, err := http.NewRequest("GET", constant.FILMS_URL, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create request for films: %w", err)
-	}
-
-	headers, err := header.GetHeaders(cookiesManager)
-	if err != nil {
-		return fmt.Errorf("failed to get headers: %w", err)
-	}
-	for k, v := range headers {
-		req.Header.Add(k, v)
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to fetch films: %w", err)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response for films: %w", err)
-	}
-
-	var films entities.FilmsFile
-	if err := json.Unmarshal(body, &films); err != nil {
-		return fmt.Errorf("failed to parse films: %w", err)
-	}
-
-	os.WriteFile("films.json", body, 0644)
-	return nil
-}
-
-func getCinemaIds() ([]string, []entities.Region, error) {
-	file, err := os.Open("cinemas.json")
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open cinemas.json: %w", err)
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to read cinemas.json: %w", err)
-	}
-
-	var cinemas entities.CinemasFile
-	if err = json.Unmarshal(data, &cinemas); err != nil {
-		return nil, nil, fmt.Errorf("failed to parse cinemas.json: %w", err)
-	}
-
-	var cinemaIds []string
-	for _, reg := range cinemas.Result {
-		for _, cinema := range reg.Cinemas {
-			cinemaIds = append(cinemaIds, cinema.CinemaId)
-		}
-	}
-
-	return cinemaIds, cinemas.Result, nil
-}
-
-func getFilmIds() ([]string, error) {
-	file, err := os.Open("films.json")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open films.json: %w", err)
-	}
-	defer file.Close()
-
-	data, err := io.ReadAll(file)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read films.json: %w", err)
-	}
-
-	var films entities.FilmsFile
-	if err := json.Unmarshal(data, &films); err != nil {
-		return nil, fmt.Errorf("failed to parse films.json: %w", err)
-	}
-
-	var filmIds []string
-	for _, film := range films.Result {
-		filmIds = append(filmIds, film.FilmId)
-	}
-
-	return filmIds, nil
-}
-
-func reportProgress(completed *int64, total int64, stop chan struct{}) {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			current := atomic.LoadInt64(completed)
-			percent := float64(current) / float64(total) * 100
-			fmt.Printf("\rProgress: %d/%d (%.2f%%) completed", current, total, percent)
-		case <-stop:
-			// Final progress update
-			current := atomic.LoadInt64(completed)
-			percent := float64(current) / float64(total) * 100
-			fmt.Printf("\rProgress: %d/%d (%.2f%%) completed", current, total, percent)
-			return
-		}
-	}
-}
-
-func worker(jobs <-chan entities.WorkItem, results chan<- entities.ShowingResult, wg *sync.WaitGroup, regionData []entities.Region, requestDelay int, completed *int64, options *FetchShowingsOptions) {
+func worker(jobs <-chan entities.WorkItem, results chan<- entities.ShowingResult, wg *sync.WaitGroup, regionData []entities.Region, completed *int64, options *FetchShowingsOptions) {
 	defer wg.Done()
 
 	for job := range jobs {
@@ -295,8 +152,7 @@ func fetchAllSeats(cinemaId string, showingResult *entities.ShowingResult, cooki
 				defer wg.Done()
 
 				// Create URL for this specific session
-				url := fmt.Sprintf(constant.SEATS_URL,
-					cinemaId, sessionId)
+				url := fmt.Sprintf(constant.SEATS_URL, cinemaId, sessionId)
 				client := &http.Client{}
 				req, err := http.NewRequest("GET", url, nil)
 				if err != nil {
@@ -422,22 +278,11 @@ func fetchShowing(cinemaId string, filmId string, regionData []entities.Region, 
 		Movie:         showingResp.Result[0].FilmTitle,
 		FilmId:        showingResp.Result[0].FilmId,
 		CinemaId:      cinemaId,
-		CinemaName:    getCinemaName(cinemaId, regionData),
+		CinemaName:    utils.GetCinemaName(cinemaId, regionData),
 		ShowingGroups: showingResp.Result[0].ShowingGroups,
 	}
 
 	return result, nil
-}
-
-func getCinemaName(cinemaId string, regionData []entities.Region) string {
-	for _, reg := range regionData {
-		for _, cinema := range reg.Cinemas {
-			if cinema.CinemaId == cinemaId {
-				return cinema.CinemaName
-			}
-		}
-	}
-	return ""
 }
 
 func aggregateBookingWithResult(result *entities.ShowingResult, booking map[string]*entities.Response) {
