@@ -6,26 +6,29 @@ import (
 	"net/http"
 
 	"github.com/paologalligit/go-extractor/entities"
+	"github.com/paologalligit/go-extractor/header"
 )
 
 type Extractor interface {
-	CallShowings(url string, headers map[string]string) (*entities.ShowingResponse, error)
-	CallSeats(url string, headers map[string]string) (*entities.Response, error)
+	CallShowings(url string) (*entities.ShowingResponse, error)
+	CallSeats(url string) (*entities.Response, error)
 }
 
 type ExtractorClient struct {
-	client *http.Client
+	client        *http.Client
+	cookieManager *header.CookiesManager
 }
 
-func New() *ExtractorClient {
+func New(cookieManager *header.CookiesManager) *ExtractorClient {
 	return &ExtractorClient{
-		client: &http.Client{},
+		client:        &http.Client{},
+		cookieManager: cookieManager,
 	}
 }
 
 // CallShowings fetches showings and unmarshals into ShowingResponse
-func (c *ExtractorClient) CallShowings(url string, headers map[string]string) (*entities.ShowingResponse, error) {
-	body, err := c.doGet(url, headers)
+func (c *ExtractorClient) CallShowings(url string) (*entities.ShowingResponse, error) {
+	body, err := c.doGet(url)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +40,8 @@ func (c *ExtractorClient) CallShowings(url string, headers map[string]string) (*
 }
 
 // CallSeats fetches seat data and unmarshals into Response
-func (c *ExtractorClient) CallSeats(url string, headers map[string]string) (*entities.Response, error) {
-	body, err := c.doGet(url, headers)
+func (c *ExtractorClient) CallSeats(url string) (*entities.Response, error) {
+	body, err := c.doGet(url)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +53,12 @@ func (c *ExtractorClient) CallSeats(url string, headers map[string]string) (*ent
 }
 
 // doGet is an internal helper for GET requests
-func (c *ExtractorClient) doGet(url string, headers map[string]string) ([]byte, error) {
+func (c *ExtractorClient) doGet(url string) ([]byte, error) {
 	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	headers, err := header.GetHeaders(c.cookieManager)
 	if err != nil {
 		return nil, err
 	}

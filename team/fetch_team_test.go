@@ -7,7 +7,6 @@ import (
 
 	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/entities"
-	"github.com/paologalligit/go-extractor/header"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,7 +17,7 @@ const (
 
 func TestFetchTeam(t *testing.T) {
 	// Arrange
-	extractor := &MockExtractor{}
+	extractor := &MockFetchExtractor{}
 	ftwm := &FetchTeamWorkingMaterial{
 		Client:       extractor,
 		ShowingUrl:   constant.SHOWINGS_URL,
@@ -33,7 +32,6 @@ func TestFetchTeam(t *testing.T) {
 				},
 			},
 		},
-		CookiesManager: &header.CookiesManager{},
 	}
 
 	// Act
@@ -63,9 +61,9 @@ func TestFetchTeam(t *testing.T) {
 	}
 }
 
-type MockExtractor struct{}
+type MockFetchExtractor struct{}
 
-func (m *MockExtractor) CallShowings(url string, headers map[string]string) (*entities.ShowingResponse, error) {
+func (m *MockFetchExtractor) CallShowings(url string) (*entities.ShowingResponse, error) {
 	data, err := os.ReadFile(FILE_PATH_SHOWINGS_TEST)
 	if err != nil {
 		return nil, err
@@ -77,7 +75,7 @@ func (m *MockExtractor) CallShowings(url string, headers map[string]string) (*en
 	return &resp, nil
 }
 
-func (m *MockExtractor) CallSeats(url string, headers map[string]string) (*entities.Response, error) {
+func (m *MockFetchExtractor) CallSeats(url string) (*entities.Response, error) {
 	data, err := os.ReadFile(FILE_PATH_SEATS_TEST)
 	if err != nil {
 		return nil, err

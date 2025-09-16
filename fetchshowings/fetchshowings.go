@@ -59,11 +59,10 @@ func RunFetchShowings(options *FetchShowingsOptions) error {
 	fmt.Printf("👷 Starting %d workers\n", workerCount)
 
 	fetchTeam := team.NewFetchTeam(workerCount, &team.FetchTeamWorkingMaterial{
-		Client:         client.New(),
-		ShowingUrl:     options.ShowingUrl,
-		RequestDelay:   options.RequestDelay,
-		RegionData:     regionData,
-		CookiesManager: options.CookiesManager,
+		Client:       client.New(options.CookiesManager),
+		ShowingUrl:   options.ShowingUrl,
+		RequestDelay: options.RequestDelay,
+		RegionData:   regionData,
 	})
 	finalResults := fetchTeam.Run(workItems)
 

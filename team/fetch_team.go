@@ -10,17 +10,15 @@ import (
 	"github.com/paologalligit/go-extractor/client"
 	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/entities"
-	"github.com/paologalligit/go-extractor/header"
 	"github.com/paologalligit/go-extractor/utils"
 )
 
 type FetchTeamWorkingMaterial struct {
-	CookiesManager *header.CookiesManager
-	RequestDelay   int
-	RegionData     []entities.Region
-	ShowingUrl     string
-	Completed      *int64
-	Client         client.Extractor
+	RequestDelay int
+	RegionData   []entities.Region
+	ShowingUrl   string
+	Completed    *int64
+	Client       client.Extractor
 }
 
 type FetchTeam struct {
@@ -40,7 +38,7 @@ func (ft *FetchTeam) Run(workItems []entities.WorkItem) []entities.ShowingResult
 	showingTeam := Team[entities.WorkItem, entities.ShowingResult]{
 		WorkerCount: ft.WorkerCount,
 		Worker: func(job entities.WorkItem) (entities.ShowingResult, error) {
-			result, err := ft.fetchShowing(job.CinemaId, job.FilmId, ft.WorkingMaterial.RegionData, ft.WorkingMaterial.CookiesManager, ft.WorkingMaterial.ShowingUrl)
+			result, err := ft.fetchShowing(job.CinemaId, job.FilmId, ft.WorkingMaterial.RegionData, ft.WorkingMaterial.ShowingUrl)
 			if err != nil {
 				return entities.ShowingResult{}, fmt.Errorf("error fetching showing for cinema %s, film %s: %w", job.CinemaId, job.FilmId, err)
 			}
@@ -63,7 +61,7 @@ func (ft *FetchTeam) Run(workItems []entities.WorkItem) []entities.ShowingResult
 	seatsTeam := Team[entities.ShowingResult, entities.ShowingResult]{
 		WorkerCount: ft.WorkerCount,
 		Worker: func(showing entities.ShowingResult) (entities.ShowingResult, error) {
-			booking, err := ft.fetchAllSeats(showing.CinemaId, &showing, ft.WorkingMaterial.CookiesManager)
+			booking, err := ft.fetchAllSeats(showing.CinemaId, &showing)
 			if err != nil {
 				return entities.ShowingResult{}, fmt.Errorf("error fetching booking for cinema %s, film %s: %w", showing.CinemaId, showing.FilmId, err)
 			}
@@ -79,13 +77,9 @@ func (ft *FetchTeam) Run(workItems []entities.WorkItem) []entities.ShowingResult
 	return finalResults
 }
 
-func (ft *FetchTeam) fetchShowing(cinemaId string, filmId string, regionData []entities.Region, cookiesManager *header.CookiesManager, showingUrl string) (entities.ShowingResult, error) {
+func (ft *FetchTeam) fetchShowing(cinemaId string, filmId string, regionData []entities.Region, showingUrl string) (entities.ShowingResult, error) {
 	url := fmt.Sprintf(showingUrl, cinemaId, filmId)
-	headers, err := header.GetHeaders(cookiesManager)
-	if err != nil {
-		return entities.ShowingResult{}, err
-	}
-	showingResp, err := ft.WorkingMaterial.Client.CallShowings(url, headers)
+	showingResp, err := ft.WorkingMaterial.Client.CallShowings(url)
 	if err != nil {
 		return entities.ShowingResult{}, err
 	}
@@ -105,15 +99,12 @@ func (ft *FetchTeam) fetchShowing(cinemaId string, filmId string, regionData []e
 	return result, nil
 }
 
-func (ft *FetchTeam) fetchAllSeats(cinemaId string, showingResult *entities.ShowingResult, cookiesManager *header.CookiesManager) (map[string]*entities.Response, error) {
+func (ft *FetchTeam) fetchAllSeats(cinemaId string, showingResult *entities.ShowingResult) (map[string]*entities.Response, error) {
 	var wg sync.WaitGroup
 	var mutex sync.Mutex
 	results := make(map[string]*entities.Response)
 	errChan := make(chan error, 1)
-	headers, err := header.GetHeaders(cookiesManager)
-	if err != nil {
-		return results, err
-	}
+
 	for _, group := range showingResult.ShowingGroups {
 		for _, session := range group.Sessions {
 			sessionId := session.SessionId
@@ -121,7 +112,7 @@ func (ft *FetchTeam) fetchAllSeats(cinemaId string, showingResult *entities.Show
 			go func(sessionId string) {
 				defer wg.Done()
 				url := fmt.Sprintf(constant.SEATS_URL, cinemaId, sessionId)
-				seatResponse, err := ft.WorkingMaterial.Client.CallSeats(url, headers)
+				seatResponse, err := ft.WorkingMaterial.Client.CallSeats(url)
 				if err != nil {
 					select {
 					case errChan <- fmt.Errorf("error making request for session %s: %v", sessionId, err):
