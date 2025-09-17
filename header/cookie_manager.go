@@ -16,6 +16,7 @@ type CookiesManager struct {
 const BASE_URL = "https://www.thespacecinema.it/"
 
 func New() (*CookiesManager, error) {
+	fmt.Println("Retrieving cookies for the first time...")
 	cookies, err := getCookiesFromBaseURL(BASE_URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cookies: %w", err)
@@ -27,7 +28,8 @@ func New() (*CookiesManager, error) {
 }
 
 func (c *CookiesManager) GetCookies() (string, error) {
-	if time.Since(c.fetchedAt) > 1*time.Hour {
+	if time.Since(c.fetchedAt) > 2*time.Hour {
+		fmt.Println("Cookies expired! Time to fetch them brand new...")
 		cookies, err := getCookiesFromBaseURL(BASE_URL)
 		if err != nil {
 			return "", fmt.Errorf("failed to get cookies: %w", err)
@@ -61,7 +63,7 @@ func getCookiesFromBaseURL(baseURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("could not create page: %w", err)
 	}
-	if _, err := page.Goto(baseURL); err != nil {
+	if _, err := page.Goto(baseURL, playwright.PageGotoOptions{Timeout: playwright.Float(45000)}); err != nil {
 		return "", fmt.Errorf("could not navigate to baseURL: %w", err)
 	}
 

@@ -55,6 +55,8 @@ func main() {
 			os.Exit(1)
 		}
 		defer pool.Close()
+		fmt.Println("Postgres pool created...")
+
 		opt := &settimers.SettimersOptions{
 			CookiesManager: cookiesManager,
 			Persistence:    persistence.NewPostgresPersistence(pool),

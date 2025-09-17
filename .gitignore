@@ -6,3 +6,4 @@ seat_counts.log
 pg_data/
 .env
 seat_counts.json
+grafana/

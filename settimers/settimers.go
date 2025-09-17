@@ -40,8 +40,7 @@ func RunSeatTimers(options *SettimersOptions) error {
 	st := team.NewSessionTeam(options.MaxGoroutines, wm)
 	st.Run(today, todayFile, func(s entities.ScheduledSession) {
 		// This callback is executed when the timer fires for a session
-		showingUrl := constant.SHOWINGS_URL_TODAY + today + constant.SHOWINGS_URL_TODAY_PARAMS
-		url := fmt.Sprintf(showingUrl, s.CinemaId, s.Session.SessionId)
+		url := fmt.Sprintf(constant.SEATS_URL, s.CinemaId, s.Session.SessionId)
 		seatResp, err := st.WorkingMaterial.Client.CallSeats(url)
 		if err != nil {
 			fmt.Printf("❌❌ Error counting seats for session %s: %v\n", s.Session.SessionId, err)
@@ -49,6 +48,19 @@ func RunSeatTimers(options *SettimersOptions) error {
 		}
 		totalSeats := seatResp.Result.SeatRows.CountSeats()
 		seatsNum := int(seatResp.Result.SessionOccupancy * float64(totalSeats))
+		if s.CinemaId == "1018" {
+			fmt.Println("--------------------------------")
+			fmt.Println("Torino film session:")
+			fmt.Println("Seats: ", seatsNum)
+			fmt.Println("Total seats: ", totalSeats)
+			fmt.Println("Session occupancy: ", seatResp.Result.SessionOccupancy)
+			fmt.Println("Session id: ", s.Session.SessionId)
+			fmt.Println("Start hour: ", s.Session.StartHour)
+			fmt.Println("Logged at: ", time.Now())
+			fmt.Println("Cinema name: ", s.CinemaName)
+			fmt.Println("Film name: ", s.FilmName)
+			fmt.Println("--------------------------------")
+		}
 		entry := entities.SeatLogEntry{
 			CinemaName: s.CinemaName,
 			FilmName:   s.FilmName,
@@ -59,7 +71,9 @@ func RunSeatTimers(options *SettimersOptions) error {
 		}
 		if err := options.Persistence.WriteSessionSeats(context.Background(), entry); err != nil {
 			fmt.Printf("❌❌ Error logging seat count for session %s: %v\n", s.Session.SessionId, err)
+			fmt.Println("The missing log entry is: ", entry)
 		}
+		fmt.Println("File correctly written to db!")
 	})
 	return nil
 }

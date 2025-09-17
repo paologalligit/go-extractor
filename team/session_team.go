@@ -95,13 +95,42 @@ func (st *SessionTeam) fetchTodayShowings(today string) ([]byte, error) {
 			}
 			var results []entities.ShowingResult
 			for _, result := range showingResp.Result {
-				results = append(results, entities.ShowingResult{
+				showing := entities.ShowingResult{
 					Movie:         result.FilmTitle,
 					FilmId:        result.FilmId,
 					CinemaId:      item,
 					CinemaName:    utils.GetCinemaName(item, st.WorkingMaterial.RegionData),
 					ShowingGroups: result.ShowingGroups,
-				})
+				}
+				// For each session, fetch seat data and set Seats/TotalSeats, StartHour, RoundedStartHour
+				for gi := range showing.ShowingGroups {
+					for si := range showing.ShowingGroups[gi].Sessions {
+						session := &showing.ShowingGroups[gi].Sessions[si]
+						seatUrl := fmt.Sprintf(constant.SEATS_URL, item, session.SessionId)
+						seatResp, err := st.WorkingMaterial.Client.CallSeats(seatUrl)
+						if err == nil && seatResp != nil {
+							totalSeats := seatResp.Result.SeatRows.CountSeats()
+							session.TotalSeats = totalSeats
+							seatsNum := int(seatResp.Result.SessionOccupancy * float64(totalSeats))
+							session.Seats = seatsNum
+						}
+						// Set StartHour and RoundedStartHour from StartTime
+						if session.StartTime != "" {
+							parts := strings.Split(session.StartTime, "T")
+							if len(parts) == 2 {
+								timePart := parts[1]
+								timeParts := strings.Split(timePart, ":")
+								if len(timeParts) >= 2 {
+									hour := timeParts[0]
+									minute := timeParts[1]
+									session.StartHour = hour + ":" + minute
+									session.RoundedStartHour = hour
+								}
+							}
+						}
+					}
+				}
+				results = append(results, showing)
 			}
 			return results, nil
 		},
@@ -163,7 +192,10 @@ func (st *SessionTeam) scheduleSessionTimers(sessions []entities.ScheduledSessio
 			fmt.Printf("Failed to parse start time for session %s: %v\n", session.Session.SessionId, err)
 			continue
 		}
-		targetTime := startTime.Add(12 * time.Minute)
+		targetTime := startTime.Add(11 * time.Minute)
+		if session.CinemaId == "1018" {
+			targetTime = startTime.Add(-2 * time.Minute)
+		}
 		minDelay := 100 * time.Millisecond
 		maxDelay := 2 * time.Minute
 		deltaMillis := rand.Int63n(maxDelay.Milliseconds()-minDelay.Milliseconds()+1) + minDelay.Milliseconds()
