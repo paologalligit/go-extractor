@@ -48,19 +48,6 @@ func RunSeatTimers(options *SettimersOptions) error {
 		}
 		totalSeats := seatResp.Result.SeatRows.CountSeats()
 		seatsNum := int(seatResp.Result.SessionOccupancy * float64(totalSeats))
-		if s.CinemaId == "1018" {
-			fmt.Println("--------------------------------")
-			fmt.Println("Torino film session:")
-			fmt.Println("Seats: ", seatsNum)
-			fmt.Println("Total seats: ", totalSeats)
-			fmt.Println("Session occupancy: ", seatResp.Result.SessionOccupancy)
-			fmt.Println("Session id: ", s.Session.SessionId)
-			fmt.Println("Start hour: ", s.Session.StartHour)
-			fmt.Println("Logged at: ", time.Now())
-			fmt.Println("Cinema name: ", s.CinemaName)
-			fmt.Println("Film name: ", s.FilmName)
-			fmt.Println("--------------------------------")
-		}
 		entry := entities.SeatLogEntry{
 			CinemaName: s.CinemaName,
 			FilmName:   s.FilmName,
