@@ -12,6 +12,8 @@ const (
 	SEATS_URL                 = "https://www.thespacecinema.it/api/microservice/booking/Session/%s/%s/seats"
 	CINEMAS_URL               = "https://www.thespacecinema.it/api/microservice/showings/cinemas"
 	FILMS_URL                 = "https://www.thespacecinema.it/api/microservice/showings/films"
+
+	PROXY_LIST_URL = "https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc"
 )
 
 var (
