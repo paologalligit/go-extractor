@@ -155,3 +155,11 @@ go run main.go today
 
 ## License
 [Specify your license here]
+
+
+## Export command
+\COPY (
+    SELECT *
+    FROM session
+    WHERE logged_at > '2025-09-18'
+) TO 'cinema_film_seats.csv' WITH CSV HEADER;
