@@ -74,11 +74,12 @@ type Proxy struct {
 
 // TODO: we need to consider also a fallback proxy which is the local ip address
 type ProxyManager struct {
-	proxies []Proxy
+	proxyHeap *ProxyHeap
 }
 
 type ProxyManagerOptions struct {
 	Client ProxyClient
+	Algo   ProxyScoreAlgo
 }
 
 func New(options *ProxyManagerOptions) (*ProxyManager, error) {
@@ -87,5 +88,9 @@ func New(options *ProxyManagerOptions) (*ProxyManager, error) {
 		return nil, err
 	}
 
-	return &ProxyManager{proxies: proxies}, nil
+	return &ProxyManager{proxyHeap: NewProxyHeap(proxies, options.Algo)}, nil
+}
+
+func (p *ProxyManager) GetBestProxies(n uint16) []*ProxyElement {
+	return p.proxyHeap.GetElements(n)
 }

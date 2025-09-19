@@ -27,8 +27,12 @@ type ProxyHeap struct {
 	algo     ProxyScoreAlgo
 }
 
-func NewProxyHeap(elements []*ProxyElement, algo ProxyScoreAlgo) *ProxyHeap {
-	h := &ProxyHeap{elements: elements, algo: algo}
+func NewProxyHeap(elements []Proxy, algo ProxyScoreAlgo) *ProxyHeap {
+	proxyElements := make([]*ProxyElement, len(elements))
+	for i, proxy := range elements {
+		proxyElements[i] = &ProxyElement{Proxy: &proxy, LastUsedAt: time.Now(), Score: 0, Index: i}
+	}
+	h := &ProxyHeap{elements: proxyElements, algo: algo}
 	heap.Init(h)
 	return h
 }

@@ -15,33 +15,36 @@ func (m *mockAlgo) CalculateScore(proxy *Proxy, lastUsedAgoSeconds int64) int {
 	return int(1000*float64(proxy.Speed) - 10*proxy.Latency + float64(lastUsedAgoSeconds))
 }
 
-func makeProxy(ip string, speed int, latency float64, lastUsedAgoSeconds int64) *ProxyElement {
-	return &ProxyElement{
-		Proxy: &Proxy{
-			IP:      ip,
-			Speed:   speed,
-			Latency: latency,
-		},
-		LastUsedAt: time.Now().Add(-time.Duration(lastUsedAgoSeconds) * time.Second),
+func makeProxy(ip string, speed int, latency float64, lastUsedAgoSeconds int64) Proxy {
+	return Proxy{
+		IP:      ip,
+		Speed:   speed,
+		Latency: latency,
 	}
 }
 
 func TestProxyHeapOrdering(t *testing.T) {
 	t.Parallel()
 	algo := &mockAlgo{}
-	proxies := []*ProxyElement{
+	now := time.Now()
+	proxies := []Proxy{
 		makeProxy("2.2.2.2", 5, 100, 1800), // medium
 		makeProxy("3.3.3.3", 1, 200, 60),   // low speed, high latency, recent
 		makeProxy("1.1.1.1", 10, 50, 3600), // high speed, low latency, old last used
 	}
-	for _, p := range proxies {
-		assert.NoError(t, p.UpdateScore(algo))
-	}
+
 	h := NewProxyHeap(proxies, algo)
+	// Set LastUsedAt to simulate different last used times
+	h.elements[0].LastUsedAt = now.Add(-1800 * time.Second)
+	h.elements[1].LastUsedAt = now.Add(-60 * time.Second)
+	h.elements[2].LastUsedAt = now.Add(-3600 * time.Second)
+	for _, e := range h.elements {
+		_ = e.UpdateScore(algo)
+	}
+	heap.Init(h)
 	for i, p := range h.elements {
 		t.Logf("index %d: ip=%s, score=%d", i, p.Proxy.IP, p.Score)
 	}
-	// After heap.Init, the e proxy should be at index 0 (root of the heap)
 	e := heap.Pop(h).(*ProxyElement)
 	assert.Equal(t, "1.1.1.1", e.Proxy.IP)
 	e = heap.Pop(h).(*ProxyElement)
@@ -53,15 +56,21 @@ func TestProxyHeapOrdering(t *testing.T) {
 func TestProxyHeapGetElements(t *testing.T) {
 	t.Parallel()
 	algo := &mockAlgo{}
-	proxies := []*ProxyElement{
+	now := time.Now()
+	proxies := []Proxy{
 		makeProxy("3.3.3.3", 1, 200, 60),
 		makeProxy("2.2.2.2", 5, 100, 1800),
 		makeProxy("1.1.1.1", 10, 50, 3600),
 	}
-	for _, p := range proxies {
-		assert.NoError(t, p.UpdateScore(algo))
-	}
+
 	h := NewProxyHeap(proxies, algo)
+	h.elements[0].LastUsedAt = now.Add(-60 * time.Second)
+	h.elements[1].LastUsedAt = now.Add(-1800 * time.Second)
+	h.elements[2].LastUsedAt = now.Add(-3600 * time.Second)
+	for _, e := range h.elements {
+		_ = e.UpdateScore(algo)
+	}
+	heap.Init(h)
 	bestTwo := h.GetElements(2)
 	assert.Equal(t, 2, len(bestTwo), "expected 2 elements, got %d", len(bestTwo))
 	assert.Equal(t, "1.1.1.1", bestTwo[0].Proxy.IP)
@@ -71,14 +80,19 @@ func TestProxyHeapGetElements(t *testing.T) {
 func TestProxyHeapRecentlyUsedPenalty(t *testing.T) {
 	t.Parallel()
 	algo := &mockAlgo{}
-	proxies := []*ProxyElement{
+	now := time.Now()
+	proxies := []Proxy{
 		makeProxy("1.1.1.1", 10, 50, 3600),
 		makeProxy("2.2.2.2", 10, 50, 10), // recently used
 	}
-	for _, p := range proxies {
-		assert.NoError(t, p.UpdateScore(algo))
-	}
+
 	h := NewProxyHeap(proxies, algo)
+	h.elements[0].LastUsedAt = now.Add(-3600 * time.Second)
+	h.elements[1].LastUsedAt = now.Add(-10 * time.Second)
+	for _, e := range h.elements {
+		_ = e.UpdateScore(algo)
+	}
+	heap.Init(h)
 	best := h.elements[0]
 	assert.Equal(t, "1.1.1.1", best.Proxy.IP, "expected best proxy to be 1.1.1.1, got %s", best.Proxy.IP)
 }

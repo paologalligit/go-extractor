@@ -76,8 +76,8 @@ func TestProxyManagerInitialization(t *testing.T) {
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
-	assert.Equal(t, 5, len(manager.proxies))
-	assert.Equal(t, "116.100.220.220", manager.proxies[0].IP)
+	assert.Equal(t, 5, len(manager.proxyHeap.elements))
+	assert.Equal(t, "116.100.220.220", manager.proxyHeap.elements[0].Proxy.IP)
 }
 
 func TestProxyManagerEmptyList(t *testing.T) {
@@ -86,7 +86,7 @@ func TestProxyManagerEmptyList(t *testing.T) {
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
-	assert.Equal(t, 0, len(manager.proxies))
+	assert.Equal(t, 0, len(manager.proxyHeap.elements))
 }
 
 func TestProxyManagerErrorHandling(t *testing.T) {
@@ -99,21 +99,18 @@ func TestProxyManagerErrorHandling(t *testing.T) {
 
 func TestProxyManagerHeapIntegration(t *testing.T) {
 	client := MockProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
-	// Convert manager.proxies to ProxyElements
-	var elements []*ProxyElement
-	for _, p := range manager.proxies {
-		elements = append(elements, &ProxyElement{Proxy: &p, LastUsedAt: time.Now().Add(-time.Hour)})
+	// Create a new heap from the proxies for testing
+	proxies := make([]Proxy, len(manager.proxyHeap.elements))
+	for i, elem := range manager.proxyHeap.elements {
+		proxies[i] = *elem.Proxy
 	}
 	algo := &mockHeapAlgo{}
-	for _, e := range elements {
-		_ = e.UpdateScore(algo)
-	}
-	h := NewProxyHeap(elements, algo)
+	h := NewProxyHeap(proxies, algo)
 	// Pop all elements to check order
 	var ips []string
 	for h.Len() > 0 {
@@ -126,8 +123,10 @@ func TestProxyManagerHeapIntegration(t *testing.T) {
 // For this test, we'll assume a GetBestProxies(n) method exists or is simulated.
 func getBestProxiesFromHeap(h *ProxyHeap, n int) []*Proxy {
 	var result []*Proxy
-	tmp := make([]*ProxyElement, len(h.elements))
-	copy(tmp, h.elements)
+	tmp := make([]Proxy, len(h.elements))
+	for i, elem := range h.elements {
+		tmp[i] = *elem.Proxy
+	}
 	tmpHeap := NewProxyHeap(tmp, h.algo)
 	for i := 0; i < n && tmpHeap.Len() > 0; i++ {
 		result = append(result, heap.Pop(tmpHeap).(*ProxyElement).Proxy)
@@ -137,21 +136,12 @@ func getBestProxiesFromHeap(h *ProxyHeap, n int) []*Proxy {
 
 func TestProxyManagerGetBestProxies(t *testing.T) {
 	client := MockProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
-	var elements []*ProxyElement
-	for _, p := range manager.proxies {
-		elements = append(elements, &ProxyElement{Proxy: &p, LastUsedAt: time.Now().Add(-time.Hour)})
-	}
-	algo := &mockHeapAlgo{}
-	for _, e := range elements {
-		_ = e.UpdateScore(algo)
-	}
-	h := NewProxyHeap(elements, algo)
-
+	h := manager.proxyHeap
 	best := getBestProxiesFromHeap(h, 2)
 	assert.Equal(t, 2, len(best))
 	// The best proxies by mock scoring should be first
@@ -161,25 +151,16 @@ func TestProxyManagerGetBestProxies(t *testing.T) {
 
 func TestProxyManagerProxyUsageUpdate(t *testing.T) {
 	client := MockProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
-	var elements []*ProxyElement
-	for _, p := range manager.proxies {
-		elements = append(elements, &ProxyElement{Proxy: &p, LastUsedAt: time.Now().Add(-time.Hour)})
-	}
-	algo := &mockHeapAlgo{}
-	for _, e := range elements {
-		assert.NoError(t, e.UpdateScore(algo))
-	}
-	h := NewProxyHeap(elements, algo)
-
+	h := manager.proxyHeap
 	// Mark the current best as just used (set LastUsedAt to now)
 	best := h.elements[0]
 	best.LastUsedAt = time.Now()
-	_ = best.UpdateScore(algo)
+	_ = best.UpdateScore(h.algo)
 	heap.Fix(h, best.Index)
 
 	// After reordering, the previously best proxy should not be at the top
@@ -189,17 +170,17 @@ func TestProxyManagerProxyUsageUpdate(t *testing.T) {
 
 func TestProxyManagerFallbackProxy(t *testing.T) {
 	client := FallbackProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 	// Simulate a fallback: if no proxies, return a local IP proxy
 	fallback := Proxy{IP: "127.0.0.1"}
 	var proxyToUse Proxy
-	if len(manager.proxies) == 0 {
+	if len(manager.proxyHeap.elements) == 0 {
 		proxyToUse = fallback
 	} else {
-		proxyToUse = manager.proxies[0]
+		proxyToUse = *manager.proxyHeap.elements[0].Proxy
 	}
 	assert.Equal(t, "127.0.0.1", proxyToUse.IP)
 }
@@ -207,33 +188,24 @@ func TestProxyManagerFallbackProxy(t *testing.T) {
 func TestProxyManagerThreadSafety(t *testing.T) {
 	t.Parallel()
 	client := MockProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
-	var elements []*ProxyElement
-	for _, p := range manager.proxies {
-		elements = append(elements, &ProxyElement{Proxy: &p, LastUsedAt: time.Now().Add(-time.Hour)})
-	}
-	algo := &mockHeapAlgo{}
-	for _, e := range elements {
-		assert.NoError(t, e.UpdateScore(algo))
-	}
-	h := NewProxyHeap(elements, algo)
-
+	h := manager.proxyHeap
 	var wg sync.WaitGroup
-	for i := range 10 {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			for range 100 {
+			for j := 0; j < 100; j++ {
 				// Simulate concurrent reads
 				_ = h.GetElements(2)
 				// Simulate concurrent update
 				e := h.elements[idx%len(h.elements)]
 				e.LastUsedAt = time.Now()
-				assert.NoError(t, e.UpdateScore(algo))
+				assert.NoError(t, e.UpdateScore(h.algo))
 				heap.Fix(h, e.Index)
 			}
 		}(i)
@@ -244,27 +216,39 @@ func TestProxyManagerThreadSafety(t *testing.T) {
 
 func TestProxyManagerAlgoSwap(t *testing.T) {
 	client := MockProxyClient{}
-	options := &ProxyManagerOptions{Client: client}
+	options := &ProxyManagerOptions{Client: client, Algo: &mockHeapAlgo{}}
 	manager, err := New(options)
 	assert.NoError(t, err)
 	assert.NotNil(t, manager)
 
-	var elements []*ProxyElement
-	for _, p := range manager.proxies {
-		elements = append(elements, &ProxyElement{Proxy: &p, LastUsedAt: time.Now().Add(-time.Hour)})
+	// Use diverse test data
+	proxies := []Proxy{
+		{IP: "1.1.1.1", Speed: 10, Latency: 10},
+		{IP: "2.2.2.2", Speed: 1, Latency: 200},
+		{IP: "3.3.3.3", Speed: 5, Latency: 100},
 	}
 	algo1 := &mockHeapAlgo{}
-	for _, e := range elements {
-		assert.NoError(t, e.UpdateScore(algo1))
+	h1 := NewProxyHeap(proxies, algo1)
+	now := time.Now()
+	h1.elements[0].LastUsedAt = now.Add(-3600 * time.Second)
+	h1.elements[1].LastUsedAt = now.Add(-60 * time.Second)
+	h1.elements[2].LastUsedAt = now.Add(-1800 * time.Second)
+	for _, e := range h1.elements {
+		_ = e.UpdateScore(algo1)
 	}
-	h1 := NewProxyHeap(elements, algo1)
+	heap.Init(h1)
 	best1 := heap.Pop(h1).(*ProxyElement).Proxy.IP
 
 	// Now use a different scoring algo
-	for _, e := range elements {
-		assert.NoError(t, e.UpdateScore(&reverseHeapAlgo{}))
+	algo2 := &reverseHeapAlgo{}
+	h2 := NewProxyHeap(proxies, algo2)
+	h2.elements[0].LastUsedAt = now.Add(-3600 * time.Second)
+	h2.elements[1].LastUsedAt = now.Add(-60 * time.Second)
+	h2.elements[2].LastUsedAt = now.Add(-1800 * time.Second)
+	for _, e := range h2.elements {
+		_ = e.UpdateScore(algo2)
 	}
-	h2 := NewProxyHeap(elements, &reverseHeapAlgo{})
+	heap.Init(h2)
 	best2 := heap.Pop(h2).(*ProxyElement).Proxy.IP
 
 	assert.NotEqual(t, best1, best2, "Swapping algos should change the best proxy")
