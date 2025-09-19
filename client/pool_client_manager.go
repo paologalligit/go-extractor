@@ -6,12 +6,13 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/paologalligit/go-extractor/header"
 	"github.com/paologalligit/go-extractor/proxy"
 )
 
 // ClientWithProxy associates an http.Client with its proxy info.
 type ClientWithProxy struct {
-	Client *http.Client
+	Client Extractor
 	Proxy  *proxy.Proxy
 }
 
@@ -22,7 +23,7 @@ type ClientPool struct {
 }
 
 // NewClientPool creates a new pool with the given size, using proxies from the ProxyManager.
-func NewClientPool(size uint16, proxyManager *proxy.ProxyManager) *ClientPool {
+func NewClientPool(size uint16, proxyManager *proxy.ProxyManager, cookieManager *header.CookiesManager) *ClientPool {
 	pool := make(chan *ClientWithProxy, size)
 	bestProxies := proxyManager.GetBestProxies(size)
 	for i := range bestProxies {
@@ -44,9 +45,12 @@ func NewClientPool(size uint16, proxyManager *proxy.ProxyManager) *ClientPool {
 			MaxIdleConnsPerHost: 10,
 			TLSHandshakeTimeout: 10 * time.Second,
 		}
-		client := &http.Client{
-			Transport: transport,
-			Timeout:   30 * time.Second,
+		client := &ExtractorClient{
+			client: &http.Client{
+				Transport: transport,
+				Timeout:   30 * time.Second,
+			},
+			cookieManager: cookieManager,
 		}
 		pool <- &ClientWithProxy{Client: client, Proxy: proxyElem.Proxy}
 	}
