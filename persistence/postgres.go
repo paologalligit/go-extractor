@@ -32,7 +32,6 @@ func InitPostgresSchema(ctx context.Context, pool *pgxpool.Pool) error {
 		return fmt.Errorf("failed to read schema file: %w", err)
 	}
 	sql := string(sqlBytes)
-	fmt.Println("Executing schema: ", sql)
 	// Split on semicolon to support multiple statements
 	stmts := strings.SplitSeq(sql, ";")
 	for stmt := range stmts {
@@ -40,7 +39,6 @@ func InitPostgresSchema(ctx context.Context, pool *pgxpool.Pool) error {
 		if stmt == "" || strings.HasPrefix(stmt, "--") {
 			continue
 		}
-		fmt.Println("Executing statement: ", stmt)
 		if _, err := pool.Exec(ctx, stmt); err != nil {
 			return fmt.Errorf("failed to execute statement: %q: %w", stmt, err)
 		}

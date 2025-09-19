@@ -10,3 +10,17 @@ services:
       - "5432:5432"
     volumes:
       - ./pg_data:/var/lib/postgresql/data
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_DISABLE_INITIAL_ADMIN_CHANGE=true
+    volumes:
+      # Persist Grafana DB and configs
+      - ./grafana/data:/var/lib/grafana
+      # Dashboards provisioning
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards

@@ -8,7 +8,6 @@ type Session struct {
 	SessionId        string `json:"sessionId"`
 	StartHour        string `json:"startHour"`
 	RoundedStartHour string `json:"roundedStartHour"`
-	EndHour          string `json:"endHour"`
 	Seats            int    `json:"seats"`
 	TotalSeats       int    `json:"totalSeats"`
 	StartTime        string `json:"startTime"`

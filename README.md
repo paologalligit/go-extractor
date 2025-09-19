@@ -128,6 +128,20 @@ go run main.go today
 
 ---
 
+## Monitoring: Grafana & Prometheus
+
+- The project includes optional Grafana and Prometheus services for monitoring.
+- Start all services (including monitoring) with:
+  ```sh
+  docker-compose up -d
+  ```
+- Access Prometheus at: http://localhost:9090
+- Access Grafana at: http://localhost:3000 (default user: `admin`, password: `admin`)
+- Prometheus scrapes itself by default. To monitor Postgres, add a Postgres exporter and update `prometheus.yml` accordingly.
+- The Prometheus config is in `prometheus.yml`.
+
+---
+
 ## Contributing
 - Pull requests and issues are welcome!
 - Please keep code modular and document new features or changes in the README.
@@ -141,3 +155,11 @@ go run main.go today
 
 ## License
 [Specify your license here]
+
+
+## Export command
+\COPY (
+    SELECT *
+    FROM session
+    WHERE logged_at > '2025-09-18'
+) TO 'cinema_film_seats.csv' WITH CSV HEADER;
