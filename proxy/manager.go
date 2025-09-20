@@ -16,6 +16,10 @@ type ProxyClientImpl struct {
 	client *http.Client
 }
 
+func NewProxyClientImpl(client *http.Client) *ProxyClientImpl {
+	return &ProxyClientImpl{client: client}
+}
+
 func (p *ProxyClientImpl) GetProxies() ([]Proxy, error) {
 	body, err := p.callProxyList()
 	if err != nil {
@@ -25,6 +29,7 @@ func (p *ProxyClientImpl) GetProxies() ([]Proxy, error) {
 	return parseProxyList(body)
 }
 
+// TODO: this should be a local list of tested proxies
 func (p *ProxyClientImpl) callProxyList() ([]byte, error) {
 	resp, err := p.client.Get(constant.PROXY_LIST_URL)
 	if err != nil {
@@ -53,16 +58,10 @@ type ProxyResponse struct {
 type Proxy struct {
 	ID                 string   `json:"_id"`
 	IP                 string   `json:"ip"`
-	AnonymityLevel     string   `json:"anonymityLevel"`
-	ASN                string   `json:"asn"`
-	City               string   `json:"city,omitempty"`
-	Country            string   `json:"country"`
+	Port               string   `json:"port"`
 	CreatedAt          string   `json:"created_at"`
-	ISP                string   `json:"isp,omitempty"`
 	LastChecked        int64    `json:"lastChecked"`
 	Latency            float64  `json:"latency"`
-	Org                string   `json:"org"`
-	Port               string   `json:"port"`
 	Protocols          []string `json:"protocols"`
 	Speed              int      `json:"speed"`
 	UpTime             float64  `json:"upTime"`

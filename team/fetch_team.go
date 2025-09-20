@@ -48,14 +48,18 @@ func (ft *FetchTeam) Run(workItems []entities.WorkItem) []entities.ShowingResult
 			return result, nil
 		},
 	}
+	fmt.Println("👷 Running showing team...")
 	showingResults := showingTeam.Run(workItems)
+	fmt.Println("👷 Showing team finished")
 
+	fmt.Println("👷 Filtering showing results...")
 	var filteredShowings []entities.ShowingResult
 	for _, result := range showingResults {
 		if result.FilmId != "" {
 			filteredShowings = append(filteredShowings, result)
 		}
 	}
+	fmt.Println("👷 Filtering showing results finished")
 
 	// Stage 2: For each showing, fetch all seats and aggregate
 	seatsTeam := Team[entities.ShowingResult, entities.ShowingResult]{
@@ -73,7 +77,10 @@ func (ft *FetchTeam) Run(workItems []entities.WorkItem) []entities.ShowingResult
 			return showing, nil
 		},
 	}
+	fmt.Println("👷 Running seats team...")
 	finalResults := seatsTeam.Run(filteredShowings)
+	fmt.Println("👷 Seats team finished")
+
 	return finalResults
 }
 

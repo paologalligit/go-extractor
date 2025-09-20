@@ -13,6 +13,8 @@ import (
 const (
 	FILE_PATH_SHOWINGS_TEST = "/Users/paologalli/Documents/go_extractor/team/call_showings_template.json"
 	FILE_PATH_SEATS_TEST    = "/Users/paologalli/Documents/go_extractor/team/seats_template.json"
+	FILE_PATH_CINEMAS_TEST  = "/Users/paologalli/Documents/go_extractor/team/cinemas_template.json"
+	FILE_PATH_FILMS_TEST    = "/Users/paologalli/Documents/go_extractor/team/films_template.json"
 )
 
 func TestFetchTeam(t *testing.T) {
@@ -81,6 +83,30 @@ func (m *MockFetchExtractor) CallSeats(url string) (*entities.Response, error) {
 		return nil, err
 	}
 	var resp entities.Response
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *MockFetchExtractor) GetCinemas() (*entities.CinemasFile, error) {
+	data, err := os.ReadFile(FILE_PATH_CINEMAS_TEST)
+	if err != nil {
+		return nil, err
+	}
+	var resp entities.CinemasFile
+	if err := json.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (m *MockFetchExtractor) GetFilms() (*entities.FilmsFile, error) {
+	data, err := os.ReadFile(FILE_PATH_FILMS_TEST)
+	if err != nil {
+		return nil, err
+	}
+	var resp entities.FilmsFile
 	if err := json.Unmarshal(data, &resp); err != nil {
 		return nil, err
 	}

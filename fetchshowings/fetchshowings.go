@@ -1,11 +1,14 @@
 package fetchshowings
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/paologalligit/go-extractor/client"
+	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/entities"
-	"github.com/paologalligit/go-extractor/header"
 	"github.com/paologalligit/go-extractor/team"
 	"github.com/paologalligit/go-extractor/utils"
 )
@@ -15,18 +18,32 @@ type FetchShowingsOptions struct {
 	RequestDelay   int
 	ShowingUrl     string
 	OutputFileName string
-	CookiesManager *header.CookiesManager
+	Client         client.Extractor
 }
 
 // RunFetchShowings fetches showings and writes them to a file
 func RunFetchShowings(options *FetchShowingsOptions) error {
-	if err := utils.FetchCinemas(options.CookiesManager); err != nil {
+	client := options.Client
+	cinemaFile, err := client.GetCinemas()
+	if err != nil {
 		return fmt.Errorf("failed to fetch cinemas: %w", err)
 	}
+	data, err := json.MarshalIndent(cinemaFile, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal cinemas: %w", err)
+	}
+	os.WriteFile(filepath.Join(constant.FilesPath, "cinemas.json"), data, 0644)
 	fmt.Println("🏠 Cinemas fetched")
-	if err := utils.FetchFilms(options.CookiesManager); err != nil {
+
+	filmFile, err := client.GetFilms()
+	if err != nil {
 		return fmt.Errorf("failed to fetch films: %w", err)
 	}
+	data, err = json.MarshalIndent(filmFile, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal films: %w", err)
+	}
+	os.WriteFile(filepath.Join(constant.FilesPath, "films.json"), data, 0644)
 	fmt.Println("🎬 Films fetched")
 
 	// Read cinema and film data
@@ -59,7 +76,7 @@ func RunFetchShowings(options *FetchShowingsOptions) error {
 	fmt.Printf("👷 Starting %d workers\n", workerCount)
 
 	fetchTeam := team.NewFetchTeam(workerCount, &team.FetchTeamWorkingMaterial{
-		Client:       client.New(options.CookiesManager),
+		Client:       options.Client,
 		ShowingUrl:   options.ShowingUrl,
 		RequestDelay: options.RequestDelay,
 		RegionData:   regionData,

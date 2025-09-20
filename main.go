@@ -4,13 +4,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
 
+	"github.com/paologalligit/go-extractor/client"
 	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/fetchshowings"
 	"github.com/paologalligit/go-extractor/header"
 	"github.com/paologalligit/go-extractor/persistence"
+	"github.com/paologalligit/go-extractor/proxy"
 	"github.com/paologalligit/go-extractor/settimers"
 )
 
@@ -25,6 +28,22 @@ func main() {
 		fmt.Printf("error getting cookies: %v\n", err)
 		os.Exit(1)
 	}
+
+	// Step 1: Initialize ProxyManager at startup
+	proxyClient := proxy.NewProxyClientImpl(&http.Client{})
+	proxyAlgo := &proxy.ProxyScoreAlgoNaive{}
+	proxyManager, err := proxy.New(&proxy.ProxyManagerOptions{
+		Client: proxyClient,
+		Algo:   proxyAlgo,
+	})
+	if err != nil {
+		fmt.Printf("error initializing proxy manager: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Step 2: Initialize ClientPool with ProxyManager and CookiesManager
+	poolSize := uint16(300) // or get from a flag/config if desired
+	clientPool := client.NewClientPool(poolSize, proxyManager, cookiesManager)
 
 	// Parse command line flags
 	maxGoroutines := flag.Int("workers", 10, "Number of concurrent workers")
@@ -42,7 +61,7 @@ func main() {
 			RequestDelay:   *requestDelay,
 			ShowingUrl:     constant.SHOWINGS_URL,
 			OutputFileName: filename,
-			CookiesManager: cookiesManager,
+			Client:         clientPool,
 		}
 		if err := fetchshowings.RunFetchShowings(opt); err != nil {
 			fmt.Printf("error running fetch showings: %v\n", err)
@@ -58,10 +77,10 @@ func main() {
 		fmt.Println("Postgres pool created...")
 
 		opt := &settimers.SettimersOptions{
-			CookiesManager: cookiesManager,
-			Persistence:    persistence.NewPostgresPersistence(pool),
-			MaxGoroutines:  *maxGoroutines,
-			RequestDelay:   *requestDelay,
+			Persistence:   persistence.NewPostgresPersistence(pool),
+			MaxGoroutines: *maxGoroutines,
+			RequestDelay:  *requestDelay,
+			Client:        clientPool,
 		}
 		if err := settimers.RunSeatTimers(opt); err != nil {
 			fmt.Printf("error running seat timers: %v\n", err)

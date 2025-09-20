@@ -8,17 +8,16 @@ import (
 	"github.com/paologalligit/go-extractor/client"
 	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/entities"
-	"github.com/paologalligit/go-extractor/header"
 	"github.com/paologalligit/go-extractor/persistence"
 	"github.com/paologalligit/go-extractor/team"
 	"github.com/paologalligit/go-extractor/utils"
 )
 
 type SettimersOptions struct {
-	CookiesManager *header.CookiesManager
-	Persistence    persistence.Persistence
-	MaxGoroutines  int
-	RequestDelay   int
+	Persistence   persistence.Persistence
+	MaxGoroutines int
+	RequestDelay  int
+	Client        client.Extractor
 }
 
 func RunSeatTimers(options *SettimersOptions) error {
@@ -31,7 +30,7 @@ func RunSeatTimers(options *SettimersOptions) error {
 
 	wm := &team.SessionTeamWorkingMaterial{
 		RequestDelay:  options.RequestDelay,
-		Client:        client.New(options.CookiesManager),
+		Client:        options.Client,
 		MaxGoroutines: options.MaxGoroutines,
 		CinemaIds:     cinemaIds,
 		RegionData:    regionData,

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/paologalligit/go-extractor/constant"
 	"github.com/paologalligit/go-extractor/entities"
 	"github.com/paologalligit/go-extractor/header"
 )
@@ -12,6 +13,8 @@ import (
 type Extractor interface {
 	CallShowings(url string) (*entities.ShowingResponse, error)
 	CallSeats(url string) (*entities.Response, error)
+	GetCinemas() (*entities.CinemasFile, error)
+	GetFilms() (*entities.FilmsFile, error)
 }
 
 type ExtractorClient struct {
@@ -50,6 +53,34 @@ func (c *ExtractorClient) CallSeats(url string) (*entities.Response, error) {
 		return nil, err
 	}
 	return &resp, nil
+}
+
+func (c *ExtractorClient) GetCinemas() (*entities.CinemasFile, error) {
+	body, err := c.doGet(constant.CINEMAS_URL)
+	if err != nil {
+		return nil, err
+	}
+	var cinemas entities.CinemasFile
+	if err := json.Unmarshal(body, &cinemas); err != nil {
+		return nil, err
+	}
+	return &cinemas, nil
+}
+
+func (c *ExtractorClient) GetFilms() (*entities.FilmsFile, error) {
+	body, err := c.doGet(constant.FILMS_URL)
+	if err != nil {
+		return nil, err
+	}
+	var films entities.FilmsFile
+	if err := json.Unmarshal(body, &films); err != nil {
+		return nil, err
+	}
+	return &films, nil
+}
+
+func (c *ExtractorClient) HTTPClient() *http.Client {
+	return c.client
 }
 
 // doGet is an internal helper for GET requests
