@@ -186,8 +186,13 @@ func (st *SessionTeam) scheduleSessionTimers(sessions []entities.ScheduledSessio
 	}
 	for _, session := range sessions {
 		loc := time.Now().Location()
-		startTimeStr := time.Now().Format("2006-01-02") + "T" + session.Session.StartHour + ":00"
+		now := time.Now()
+		startTimeStr := now.Format("2006-01-02") + "T" + session.Session.StartHour + ":00"
 		startTime, err := time.ParseInLocation("2006-01-02T15:04:05", startTimeStr, loc)
+		if err == nil && startTime.Before(now) {
+			// If the session's start time is before now, it's for tomorrow
+			startTime = startTime.Add(24 * time.Hour)
+		}
 		if err != nil {
 			fmt.Printf("Failed to parse start time for session %s: %v\n", session.Session.SessionId, err)
 			continue
