@@ -2,11 +2,11 @@ WORKERS ?= 10
 DELAY ?= 100
 
 all:
-	go run main.go all --workers=$(WORKERS) --delay=$(DELAY)
+	go run main.go --workers=$(WORKERS) --delay=$(DELAY) all
 
 today:
 	docker compose up -d
-	go run main.go today --workers=$(WORKERS) --delay=$(DELAY)
+	go run main.go --workers=$(WORKERS) --delay=$(DELAY) today
 	docker compose down
 
 initdb:
