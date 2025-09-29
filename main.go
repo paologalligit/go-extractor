@@ -31,7 +31,7 @@ func main() {
 	requestDelay := flag.Int("delay", 100, "Delay between requests in milliseconds")
 	flag.Parse()
 
-	switch os.Args[1] {
+	switch os.Args[len(os.Args)-1] {
 	case "all":
 		fmt.Printf("Configuration: Using %d workers with %dms delay between requests\n", *maxGoroutines, *requestDelay)
 
