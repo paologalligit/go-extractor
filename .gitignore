@@ -8,3 +8,4 @@ pg_data/
 seat_counts.json
 grafana/
 index.js
+todaySession-*.json
