@@ -197,7 +197,7 @@ func (st *SessionTeam) scheduleSessionTimers(sessions []entities.ScheduledSessio
 			fmt.Printf("Failed to parse start time for session %s: %v\n", session.Session.SessionId, err)
 			continue
 		}
-		targetTime := startTime.Add(11 * time.Minute)
+		targetTime := startTime.Add(12 * time.Minute)
 		if session.CinemaId == "1018" {
 			targetTime = startTime.Add(-2 * time.Minute)
 		}
